@@ -12,5 +12,18 @@ CHIP DMux {
     OUT a, b;
 
     PARTS:
-    //// Replace this comment with your code.
+    Not(in=sel, out=notsel);
+    And(a=in, b=notsel, out=a);
+    And(a=in, b=sel, out=b);
+    
+    /**
+    in, sel | a b
+    0   0   | 0 0
+    0   1   | 0 0
+    1   0   | 1 0
+    1   1   | 0 1
+
+    Minterms => a = in * sel^
+    Minterms => b = in * sel
+    */
 }
