@@ -37,23 +37,22 @@ CHIP ALU {
         ng;      // if (out < 0)  equals 1, else 0
 
     PARTS:
-    // Pre-setting the x, y inputs
+    // pre-setting
     Mux16(a=x, b=false, sel=zx, out=outzx); // Zero the x if 1
     Mux16(a=y, b=false, sel=zy, out=outzy); // Zero the y if 1
     Not16(in=outzx, out=negx); // Negate the x if 1
-    Not16(in=outzy, out=negy); // Negate the x if 1
+    Not16(in=outzy, out=negy); // Negate the y if 1
     Mux16(a=outzx, b=negx, sel=nx, out=outnx); 
     Mux16(a=outzy, b=negy, sel=ny, out=outny); 
 
-    // Compute F
+    // function & negate
     And16(a=outnx, b=outny, out=andout);
     Add16(a=outnx, b=outny, out=orout);
     Mux16(a=andout, b=orout, sel=f, out=outf);
-    
-    // Negate the output?
     Not16(in=outf, out=negoutf);
     Mux16(a=outf, b=negoutf, sel=no, out=out, out[0..7]=t1, out[8..15]=t2, out[15]=t3);
     
+    // last 2-bits 
     Or8Way(in=t1, out=orout1);
     Or8Way(in=t2, out=orout2);
     Or(a=orout1, b=orout2, out=outzr);
