@@ -50,12 +50,11 @@ CHIP ALU {
     Add16(a=outnx, b=outny, out=orout);
     Mux16(a=andout, b=orout, sel=f, out=outf);
     Not16(in=outf, out=negoutf);
-    Mux16(a=outf, b=negoutf, sel=no, out=out, out[0..7]=t1, out[8..15]=t2, out[15]=t3);
+    Mux16(a=outf, b=negoutf, sel=no, out=out, out[0..7]=t1, out[8..15]=t2, out[15]=ng);
     
     // last 2-bits 
     Or8Way(in=t1, out=orout1);
     Or8Way(in=t2, out=orout2);
     Or(a=orout1, b=orout2, out=outzr);
     Mux(a=true, b=false, sel=outzr, out=zr);
-    Mux(a=false, b=true, sel=t3, out=ng);
 }
