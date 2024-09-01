@@ -10,79 +10,81 @@
   @j
   M=0
   
+  // if not kbd input go back to start
   @KBD
   D=M
   @START
   D;JEQ
 
-(LOOP)
-  @KBD
-  D=M
-  @START
-  D;JEQ
-  
+(WRTBLK) 
+  // check if every pixel is 1
   @i
   D=M
   @SCREEN
   D=D+A
   @24574
   D=D-A
-  @END
+  @BLKEND
   D;JGT
-
+  
+  // write pixel to 1
   @i
   D=M
   @SCREEN
   A=A+D
   M=-1
   
-  @32
+  // update iterator
+  @1
   D=A
   @i
   M=D+M
 
-  @LOOP
+  @WRTBLK
   0;JMP
 
-(WHITE)
+(WRTWHT)
+  // check if every pixel is 0
   @j
   D=M
   @SCREEN
   D=D+A
   @24574
   D=D-A
-  @END2
+  @WHTEND
   D;JGT
-
+  
+  // write pixel to 0
   @j
   D=M
   @SCREEN
   A=A+D
   M=0
   
-  @32
+  // update iterator
+  @1
   D=A
   @j
   M=D+M
 
-  @WHITE
+  @WRTWHT
   0;JMP
  
-(END)
+(BLKEND)
   @KBD
   D=M
-  @WHITE
+  @WRTWHT
   D;JEQ
   
-  @END
+  @BLKEND
   0;JMP
 
-(END2)
+(WHTEND)
   @KBD
   D=M
   @START
   D;JEQ
   
-  @END2
+  @WHTEND
   0;JMP
 
