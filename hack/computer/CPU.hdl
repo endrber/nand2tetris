@@ -48,15 +48,15 @@ CHIP CPU {
     DRegister(in=ALUOUT, load=writeD, out=operandX);
     
     /** Program Counter **/
-    Or(a=zr, b=ng, out=zrorng);
+    Or(a=zr, b=ng, out=zrorng);specified
     Not(in=zrorng, out=ps);
     
     //* Handle all cases **/
     And(a=instruction[0], b=ps, out=jgt);	    // if out > 0 jmp
     And(a=instruction[1], b=zr, out=jeq);	    // if out = 0 jmp
-    And(a=instruction[2], b=ng, out=jlt); 	  // if out < 0 jmp
-    Or(a=jeq, b=jlt, out=jle);			          // if out<= 0 jmp
-    Or(a=jgt, b=jle, out=jmp);			          // jump
+    And(a=instruction[2], b=ng, out=jlt); 	    // if out < 0 jmp
+    Or(a=jeq, b=jlt, out=jle);			        // if out<= 0 jmp
+    Or(a=jgt, b=jle, out=jmp);			        // jump
 
     And(a=jmp, b=ctype, out=load);
     Not(in=load, out=inc);			       
