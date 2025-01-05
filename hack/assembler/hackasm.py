@@ -266,7 +266,7 @@ class Assembler:
 
 if __name__ == '__main__':
   if len(sys.argv) != 2:
-    print("Usage: assembler.py <filename.asm>")
+    print("Usage: hackasm.py <filename.asm>")
     sys.exit(1)
   try:
     assembler = Assembler(sys.argv[1])
