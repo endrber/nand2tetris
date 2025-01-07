@@ -1,6 +1,28 @@
 #!/usr/bin/env python3
 import sys
 
+class VMCommand:
+  def to_assembly(self):
+    raise NotImplementedError("Must be implemented by subclasses.")
+
+class VMArithmeticCommand(VMCommand):
+  def __init__(self, command, arg1):
+    self.command = command
+    self.arg1 = arg1
+
+  def to_assembly(self):
+    raise NotImplementedError
+
+class VMPushPopCommand(VMCommand):
+  def __init__(self, command, ctype, arg1, arg2):
+    self.command = command
+    self.ctype = ctype
+    self.arg1 = arg1
+    self.arg2 = arg2
+
+  def to_assembly(self):
+    raise NotImplementedError
+
 class Parser:
   COMMENT_PREFIXES = ("//", "#", ";")
   
@@ -26,7 +48,7 @@ class Parser:
     self.i = self.current + 1
     self.current += 1
 
-  def command_type(self):
+  def ctype(self):
     command = self.current_command.lower()
     if command.startswith("push"):
       return "C_PUSH"
@@ -40,7 +62,7 @@ class Parser:
 
   @property
   def arg1(self):
-    ctype = self.command_type()
+    ctype = self.ctype()
     if ctype not in ["C_RETURN"]:
       if ctype == "C_ARITHMETIC":
         return self.current_command.split()[0]
@@ -49,16 +71,22 @@ class Parser:
 
   @property
   def arg2(self):
-    if self.command_type() in ["C_PUSH", "C_POP", "C_FUNCTION", "C_CALL"]:
-      return self.current_command.split()[2]
+    if self.ctype() in ["C_PUSH", "C_POP", "C_FUNCTION", "C_CALL"]:
+      try:
+        return int(self.current_command.split()[2])
+      except ValueError:
+        return self.current_command.split()[2]
 
   def parse(self):
     commands = []
     while self.next():
       self.advance()
-      a1, a2 = self.arg1, self.arg2
-      print(f"{self.command_type()} -> ARG1: '{a1}' | ARG2: '{a2}'")
-      commands.append(self.current_command)
+      arg1, arg2 = self.arg1, self.arg2
+      ctype = self.ctype()
+      if ctype == "C_ARITHMETIC":
+        commands.append(VMArithmeticCommand(self.current_command, arg1))
+      elif ctype in ["C_PUSH", "C_POP"]:
+        commands.append(VMPushPopCommand(self.current_command, ctype, arg1, arg2))
     return commands
 
 class VMTranslator:
@@ -79,7 +107,8 @@ class VMTranslator:
     p = Parser(self.filename)
     try:
       commands = p.parse()
-      print(commands)
+      for command in commands:
+        print(command, command.to_assembly())
       # self.write()
     # except SyntaxError as e:
     #   print(f"Syntax Error: {e}")
