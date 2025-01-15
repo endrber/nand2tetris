@@ -11,7 +11,16 @@ class VMArithmeticCommand(VMCommand):
     self.arg1 = arg1
 
   def to_assembly(self):
-    raise NotImplementedError
+    asm = []
+    if self.arg1.lower() == "add":
+      asm.extend([
+        "@SP",
+        "AM=M-1",
+        "D=M",
+        "A=A-1",
+        "M=M+D",
+      ])
+    return asm
 
 class VMPushPopCommand(VMCommand):
   def __init__(self, command, ctype, arg1, arg2):
@@ -21,7 +30,19 @@ class VMPushPopCommand(VMCommand):
     self.arg2 = arg2
 
   def to_assembly(self):
-    raise NotImplementedError
+    asm = []
+    if self.ctype == "C_PUSH":
+      if self.arg1.lower() == "constant":
+        asm.extend([
+          f"@{self.arg2}",
+          "D=A",
+          "@SP",
+          "A=M",
+          "M=D",
+          "@SP",
+          "M=M+1"
+        ])    
+    return asm
 
 class Parser:
   COMMENT_PREFIXES = ("//", "#", ";")
@@ -105,25 +126,18 @@ class VMTranslator:
 
   def translate(self):
     p = Parser(self.filename)
-    try:
-      commands = p.parse()
-      for command in commands:
-        print(command, command.to_assembly())
-      # self.write()
-    # except SyntaxError as e:
-    #   print(f"Syntax Error: {e}")
-    #   sys.exit(1)
-    except Exception as e:
-      print(f"Error: {e}")
-      sys.exit(1)
+    asm = [] 
+    for command in p.parse():
+      # print(command, command.to_assembly())
+      asm.append(command.to_assembly())
+    asm = sum(asm, [])
+    print(asm)
+    # self.write()
 
 if __name__ == '__main__':
   if len(sys.argv) != 2:
     print("Usage: hackvm.py <filename.asm>")
-    sys.exit(1)
-  try:
-    vm = VMTranslator(sys.argv[1])
-    vm.translate()
-  except Exception as e:
-    print(f"Error: {e}")
-    sys.exit(1)
+    sys.exit()
+    
+  vm = VMTranslator(sys.argv[1])
+  vm.translate()
