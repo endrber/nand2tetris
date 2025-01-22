@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 import sys
 
+def instruction(inst, **kwargs):
+  print(inst, kwargs)
+  if inst == "A": return f"@{kwargs["address"]}"
+  elif inst == "C":
+    c_instruction = f"{kwargs['dest']+'=' if kwargs["dest"] is not None else ''}{kwargs['comp']}"
+    return c_instruction+f";{kwargs["jump"]}" if "jump" in kwargs else c_instruction
+  else: AttributeError(f"'{inst}' not supported")
+
 class VMCommand:
   def to_assembly(self):
     raise NotImplementedError("Must be implemented by subclasses.")
@@ -9,18 +17,74 @@ class VMArithmeticCommand(VMCommand):
   def __init__(self, command, arg1):
     self.command = command
     self.arg1 = arg1
+    self.label_num = 0
+    self.commands = []
+
+  def _sp_op(self, op):
+    self.commands.append(instruction(inst="A", address="SP"))
+    self.commands.append(instruction(inst="C", dest="M", comp=f"M{op}1"))
+
+  def _comp_to_sp(self, comp):
+    self.commands.append(instruction(inst="A", address="SP"))
+    self.commands.append(instruction(inst="C", dest="A", comp="M"))
+    self.commands.append(instruction(inst="C", dest="M", comp=comp))
+
+  def _sp_to_dest(self, dest):
+    self.commands.append(instruction(inst="A", address="SP"))
+    self.commands.append(instruction(inst="C", dest="A", comp="M"))
+    self.commands.append(instruction(inst="C", dest=dest, comp="M"))
+
+  def _label(self):
+    self.label_num += 1
+    return 'LABEL'+str(self.label_num)
+
+  def _unary_op(self, comp):
+    self._sp_op("-")                     
+    self._sp_to_dest('D')           
+    self.commands.append(instruction(inst="C", dest="D", comp=comp))        
+    self._comp_to_sp('D')           
+    self._sp_op("+")                     
+
+  def _binary_op(self, comp):
+    self._sp_op("-")
+    self._sp_to_dest("D")
+    self._sp_op("-")
+    self._sp_to_dest("A")
+    self.commands.append(instruction(inst="C", dest="D", comp=comp))
+    self._sp_op("+")
+
+  def _compare_op(self, jump):
+    def jump(comp, jump):
+      lbl = self._label()
+      self.commands.append(instruction(inst="A", address=label))
+      self.commands.append(instruction(inst="C", dest=None, comp=comp, jump=jump))
+      return lbl
+    self._sp_op("-")                    
+    self._sp_to_dest('D')            
+    self._sp_op("-")                    
+    self._sp_to_dest('A')    
+    self.commands.append(instruction(inst="C", dest="D", comp='A-D'))
+    label_eq = jump('D', jump)
+    self._comp_to_sp('0')
+    label_ne = jump('0', 'JMP')   
+    self.commands.append(f"('{label_eq}')")           
+    self._comp_to_sp('-1')           
+    self.commands.append(f"('{label_ne}')")           
+    self._sp_op()                      
 
   def to_assembly(self):
-    asm = []
-    if self.arg1.lower() == "add":
-      asm.extend([
-        "@SP",
-        "AM=M-1",
-        "D=M",
-        "A=A-1",
-        "M=M+D",
-      ])
-    return asm
+    command = self.arg1.lower()
+    if   command == "add": self._binary_op("D+A")
+    elif command == "sub": self._binary_op("A-D")
+    elif command == 'neg': self._unary_op('-D')
+    elif command == 'eq': self._compare_op('JEQ')
+    elif command == 'gt': self._compare_op('JGT')
+    elif command == 'lt': self._compare_op('JLT')
+    elif command == 'and': self._binary_op('D&A')
+    elif command == 'or': self._binary_op('D|A')
+    elif command == 'not': self._unary_op('!D')
+    else: raise Exception(f"{command} to_assembly not found for arithmetic")
+    return self.commands
 
 class VMPushPopCommand(VMCommand):
   def __init__(self, command, ctype, arg1, arg2):
@@ -28,22 +92,28 @@ class VMPushPopCommand(VMCommand):
     self.ctype = ctype
     self.arg1 = arg1
     self.arg2 = arg2
+    self.commands = []
+
+  def _push(self, seg, idx):
+    if seg == "constant":
+      self.commands.append(instruction(inst="A", address=str(idx)))
+      self.commands.append(instruction(inst="C", dest="D", comp="A"))
+      self.commands.append(instruction(inst="A", address="SP"))
+      self.commands.append(instruction(inst="C", dest="M", comp="D"))
+    else: raise NotImplementedError
+  
+  def _pop(self, seg, idx):
+    raise NotImplementedError
 
   def to_assembly(self):
-    asm = []
-    if self.ctype == "C_PUSH":
-      if self.arg1.lower() == "constant":
-        asm.extend([
-          f"@{self.arg2}",
-          "D=A",
-          "@SP",
-          "A=M",
-          "M=D",
-          "@SP",
-          "M=M+1"
-        ])    
-    return asm
+    CTYPE = self.ctype
+    SEG = self.arg1
+    IDX = self.arg2
 
+    if CTYPE == "C_PUSH": self._push(SEG, IDX)
+    else: raise NotImplementedError
+    return self.commands
+        
 class Parser:
   COMMENT_PREFIXES = ("//", "#", ";")
   
@@ -78,25 +148,24 @@ class Parser:
     elif command in ["add", "sub", "neg", "eq", "gt", "lt", "and", "or", "not"]:
       return "C_ARITHMETIC"
     #TODO: Add implemention for ["C_LABEL", "C_GOTO", "C_IF", "C_FUNCTION", "C_RETURN", "C_CALL"]
-    else:
-      raise NotImplementedError(f"Command type for '{command}' is not implemented.")
+    else: raise NotImplementedError(f"Command type for '{command}' is not implemented.")
 
   @property
   def arg1(self):
     ctype = self.ctype()
     if ctype not in ["C_RETURN"]:
       if ctype == "C_ARITHMETIC":
-        return self.current_command.split()[0]
+        return self.current_command.split()[0].lower()
       else:
-        return self.current_command.split()[1]
+        return self.current_command.split()[1].lower()
 
   @property
   def arg2(self):
     if self.ctype() in ["C_PUSH", "C_POP", "C_FUNCTION", "C_CALL"]:
       try:
-        return int(self.current_command.split()[2])
+        return int(self.current_command.split()[2].lower())
       except ValueError:
-        return self.current_command.split()[2]
+        return self.current_command.split()[2].lower()
 
   def parse(self):
     commands = []
@@ -108,6 +177,7 @@ class Parser:
         commands.append(VMArithmeticCommand(self.current_command, arg1))
       elif ctype in ["C_PUSH", "C_POP"]:
         commands.append(VMPushPopCommand(self.current_command, ctype, arg1, arg2))
+      else: raise NotImplemetedError
     return commands
 
 class VMTranslator:
@@ -126,18 +196,18 @@ class VMTranslator:
 
   def translate(self):
     p = Parser(self.filename)
-    asm = [] 
+    asm_codegen = [] 
     for command in p.parse():
-      # print(command, command.to_assembly())
-      asm.append(command.to_assembly())
+      asm = command.to_assembly()
+      if asm is not None: asm_codegen.append(asm)
     asm = sum(asm, [])
-    print(asm)
+    for a in asm:
+      print(a)
     # self.write()
 
 if __name__ == '__main__':
   if len(sys.argv) != 2:
     print("Usage: hackvm.py <filename.asm>")
     sys.exit()
-    
   vm = VMTranslator(sys.argv[1])
   vm.translate()
